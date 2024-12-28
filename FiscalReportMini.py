@@ -433,6 +433,8 @@ def write_to_google_sheet(serial_number, model, fiscal_number, firm_name, receip
 
         # Ищем первую свободную строку
         next_row = len(sheet.col_values(2)) + 1  # Колонка B
+        if next_row < 2:
+            next_row = 2
 
         # Подготовка данных для записи
         data = [
