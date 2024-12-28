@@ -40,7 +40,35 @@ def get_com_ports():
     ports = serial.tools.list_ports.comports()
     sorted_ports = sorted(ports, key=lambda p: p.device)  # Сортировка по имени устройства
     return [port.device for port in sorted_ports]
+    
+###############################################################################
+# Функция подключения по сом-порту и подключение к .dll библиотеке
+def get_ecr_connection():
+    port = port_combo.get()  # Получаем выбранный COM-порт
+    if not port:
+        log_message("Помилка: Оберіть СОМ-порт.")
+        return None, None
 
+    # Извлекаем только цифру порта
+    try:
+        port_number = ''.join(filter(str.isdigit, port))  # Оставляем только цифры
+        if not port_number:
+            log_message("Помилка: Невірний формат СОМ-порту.")
+            return None, None
+    except Exception as e:
+        log_message(f"Помилка обробки СОМ-порту: {e}")
+        return None, None
+
+    log_message(f"Вибраний СОМ-порт: {port_number}")
+
+    # Подключение к OLE-серверу
+    try:
+        ecr = win32com.client.Dispatch("ecrmini.t400")
+        log_message("Підключення до .dll бібліотеки встановлено!")
+        return ecr, port_number
+    except Exception as e:
+        log_message(f"Помилка підключення: {e}")
+        return None, None
 ###############################################################################
 # Функция выполнения команды
 def execute_command(command, ecr):
@@ -65,29 +93,8 @@ def get_masters():
 ###############################################################################
 # СІНХРОНІЗАЦІЯ ЧАСУ
 def sync_time_now():
-    port = port_combo.get()  # Получаем выбранный COM-порт
-    if not port:
-        log_message("Помилка: Оберіть СОМ-порт.")
-        return
-
-    # Извлекаем только цифру порта
-    try:
-        port_number = ''.join(filter(str.isdigit, port))  # Оставляем только цифры
-        if not port_number:
-            log_message("Помилка: Невірний формат СОМ-порту.")
-            return
-    except Exception as e:
-        log_message(f"Помилка обробки СОМ-порту: {e}")
-        return
-
-    log_message(f"Вибраний СОМ-порт: {port_number}")
-
-    try:
-        # Подключение к OLE-серверу
-        ecr = win32com.client.Dispatch("ecrmini.t400")
-        log_message("Підключення до .dll бібліотеки встановлено!")
-    except Exception as e:
-        log_message(f"Помилка підключення: {e}")
+    ecr, port_number = get_ecr_connection()
+    if not ecr or not port_number:
         return
 
     # Открытие порта
@@ -155,30 +162,8 @@ def sync_time_now():
 ######################################################################################
 # Функция для X-звіту
 def x_report():
-    port = port_combo.get()  # Получаем выбранный COM-порт
-    if not port:
-        log_message("Помилка: Оберіть СОМ-порт.")
-        return
-
-    # Извлекаем только цифру порта
-    try:
-        port_number = ''.join(filter(str.isdigit, port))  # Оставляем только цифры
-        if not port_number:
-            log_message("Помилка: Невірний формат СОМ-порту.")
-            return
-    except Exception as e:
-        log_message(f"Помилка обробки СОМ-порту: {e}")
-        return
-
-    log_message(f"Вибраний СОМ-порт: {port_number}")
-    # Дальнейшая работа с `port_number`
-
-    try:
-        # Подключение к OLE-серверу
-        ecr = win32com.client.Dispatch("ecrmini.t400")
-        log_message("Підключення до .dll бібліотеки встановлено!")
-    except Exception as e:
-        log_message(f"Помилка підключення: {e}")
+    ecr, port_number = get_ecr_connection()
+    if not ecr or not port_number:
         return
 
     # Выполнение команд
@@ -205,30 +190,8 @@ def x_report():
 ######################################################################################
 # Функція для Скасування
 def cancel_report():    # СНЯТИЕ ФИСКАЛЬНЫХ ОТЧЁТОВ
-    port = port_combo.get()  # Получаем выбранный COM-порт
-    if not port:
-        log_message("Помилка: Оберіть СОМ-порт.")
-        return
-
-    # Извлекаем только цифру порта
-    try:
-        port_number = ''.join(filter(str.isdigit, port))  # Оставляем только цифры
-        if not port_number:
-            log_message("Помилка: Невірний формат СОМ-порту.")
-            return
-    except Exception as e:
-        log_message(f"Помилка обробки СОМ-порту: {e}")
-        return
-
-    log_message(f"Вибраний СОМ-порт: {port_number}")
-    # Дальнейшая работа с `port_number`
-
-    try:
-        # Подключение к OLE-серверу
-        ecr = win32com.client.Dispatch("ecrmini.t400")
-        log_message("Підключення до .dll бібліотеки встановлено!")
-    except Exception as e:
-        log_message(f"Ошибка подключения: {e}")
+    ecr, port_number = get_ecr_connection()
+    if not ecr or not port_number:
         return
 
     # Выполнение команд
@@ -269,29 +232,8 @@ def cancel_report():    # СНЯТИЕ ФИСКАЛЬНЫХ ОТЧЁТОВ
 ######################################################################################
 # КІЛЬКІСТЬ ПАКЕТІВ В РРО
 def packet_count():
-    port = port_combo.get()  # Получаем выбранный COM-порт
-    if not port:
-        log_message("Помилка: Оберіть СОМ-порт.")
-        return
-
-    # Извлекаем только цифру порта
-    try:
-        port_number = ''.join(filter(str.isdigit, port))  # Оставляем только цифры
-        if not port_number:
-            log_message("Помилка: Невірний формат СОМ-порту.")
-            return
-    except Exception as e:
-        log_message(f"Помилка обробки СОМ-порту: {e}")
-        return
-
-    log_message(f"Вибраний СОМ-порт: {port_number}")
-
-    try:
-        # Подключение к OLE-серверу
-        ecr = win32com.client.Dispatch("ecrmini.t400")
-        log_message("Підключення до .dll бібліотеки встановлено!")
-    except Exception as e:
-        log_message(f"Помилка підключення: {e}")
+    ecr, port_number = get_ecr_connection()
+    if not ecr or not port_number:
         return
 
     # Выполнение команды
@@ -345,30 +287,8 @@ def packet_count():
 ######################################################################################
 # ПРИМУСОВА ПЕРЕДАЧА ДАНИХ ДО ПОДАТКОВОЇ
 def send_data():    # ПРИНУДИТЕЛЬНАЯ ОТПРАВКА ДАННЫХ В НАЛОГОВУЮ
-    port = port_combo.get()  # Получаем выбранный COM-порт
-    if not port:
-        log_message("Помилка: Оберіть СОМ-порт.")
-        return
-
-    # Извлекаем только цифру порта
-    try:
-        port_number = ''.join(filter(str.isdigit, port))  # Оставляем только цифры
-        if not port_number:
-            log_message("Помилка: Невірний формат СОМ-порту.")
-            return
-    except Exception as e:
-        log_message(f"Помилка обробки СОМ-порту: {e}")
-        return
-
-    log_message(f"Вибраний СОМ-порт: {port_number}")
-    # Дальнейшая работа с `port_number`
-
-    try:
-        # Подключение к OLE-серверу
-        ecr = win32com.client.Dispatch("ecrmini.t400")
-        log_message("Підключення до .dll бібліотеки встановлено!")
-    except Exception as e:
-        log_message(f"Помилка підключення: {e}")
+    ecr, port_number = get_ecr_connection()
+    if not ecr or not port_number:
         return
 
     # Выполнение команд
@@ -458,30 +378,8 @@ def write_to_google_sheet(serial_number, model, fiscal_number, firm_name, receip
 
 # Функция для извлечения информации из кассы
 def get_rro_info():
-    port = port_combo.get()  # Получаем выбранный COM-порт
-    if not port:
-        log_message("Помилка: Оберіть СОМ-порт.")
-        return
-
-    # Извлекаем только цифру порта
-    try:
-        port_number = ''.join(filter(str.isdigit, port))  # Оставляем только цифры
-        if not port_number:
-            log_message("Помилка: Невірний формат СОМ-порту.")
-            return
-    except Exception as e:
-        log_message(f"Помилка обробки СОМ-порту: {e}")
-        return
-
-    log_message(f"Вибраний СОМ-порт: {port_number}")
-    # Дальнейшая работа с `port_number`
-
-    try:
-        # Подключение к OLE-серверу
-        ecr = win32com.client.Dispatch("ecrmini.t400")
-        log_message("Підключення до .dll бібліотеки встановлено!")
-    except Exception as e:
-        log_message(f"Помилка підключення: {e}")
+    ecr, port_number = get_ecr_connection()
+    if not ecr or not port_number:
         return
 
     # Выполнение команд
