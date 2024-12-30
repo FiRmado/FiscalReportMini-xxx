@@ -165,6 +165,46 @@ def x_report():
     ecr, port_number = get_ecr_connection()
     if not ecr or not port_number:
         return
+    
+    # Открытие порта
+    command = f"open_port;{port_number};115200"
+    if not ecr.t400me(command):
+        log_message(f"Помилка виконання команди: {command}")
+        return
+
+    # Проверка статуса фискальной памяти
+    command = "get_fm_status;"
+    if ecr.t400me(command):
+        response = ecr.get_last_result.strip()  # Убираем лишние пробелы и символы переноса строки
+        #log_message(f"Відповідь від get_fm_status: {response}")
+        try:
+            # Разбиваем ответ на параметры
+            params = response.split(";")
+            if len(params) >= 10:  # Проверяем, что есть достаточно параметров
+                # Получаем параметры 8 и 9 (индексация начинается с 0)
+                total_records = int(params[8])  # Параметр 9 - максимальное число отчётов
+                used_records = int(params[7])   # Параметр 8 - использованные отчёты
+                log_message(f"Фіскальна пам'ять: Використано {used_records} з {total_records}")
+                if used_records >= total_records:
+                    log_message("Фіскальна пам'ять переповнена. Зняття Х-звіту неможливо.")
+                    messagebox.showinfo("Увага", "Фіскальна пам'ять переповнена. Зняття Х-звіту неможливо.")
+                    return
+            else:
+                log_message(f"Помилка: Неповна відповідь від команди get_fm_status. Відповідь: {response}")
+                messagebox.showwarning("Помилка", f"Отримано неповну відповідь від команди get_fm_status. Відповідь: {response}")
+                return
+        except ValueError as ve:
+            log_message(f"Помилка конвертації параметрів get_fm_status: {ve}")
+            messagebox.showerror("Помилка", f"Неможливо обробити відповідь get_fm_status: {ve}")
+            return
+        except Exception as e:
+            log_message(f"Невідома помилка обробки get_fm_status: {e}")
+            messagebox.showerror("Помилка", f"Неможливо обробити відповідь get_fm_status: {e}")
+            return
+    else:
+        log_message("Помилка виконання команди: get_fm_status.")
+        messagebox.showerror("Помилка", "Команда get_fm_status не виконана.")
+        return
 
     # Выполнение команд
     commands = [
@@ -193,16 +233,54 @@ def cancel_report():    # СНЯТИЕ ФИСКАЛЬНЫХ ОТЧЁТОВ
     ecr, port_number = get_ecr_connection()
     if not ecr or not port_number:
         return
+    
+    # Открытие порта
+    command = f"open_port;{port_number};115200"
+    if not ecr.t400me(command):
+        log_message(f"Помилка виконання команди: {command}")
+        return
 
-    # Выполнение команд
+    # Проверка статуса фискальной памяти
+    command = "get_fm_status;"
+    if ecr.t400me(command):
+        response = ecr.get_last_result.strip()
+        try:
+            # Разбиваем ответ на параметры
+            params = response.split(";")
+            if len(params) >= 10:  # Проверяем, что есть достаточно параметров
+                total_records = int(params[8])  # Параметр 9
+                used_records = int(params[7])   # Параметр 8
+                if used_records >= total_records:
+                    log_message("Фіскальна пам'ять переповнена. Зняття Х-звіту буде пропущено.")
+                    messagebox.showinfo("Увага", "Фіскальна пам'ять переповнена. Зняття Х-звіту буде пропущено.")
+                    skip_x_report = True
+                else:
+                    skip_x_report = False
+            else:
+                log_message("Помилка: Неповна відповідь від команди get_fm_status.")
+                messagebox.showwarning("Помилка", "Отримано неповну відповідь від команди get_fm_status.")
+                return
+        except Exception as e:
+            log_message(f"Помилка обробки відповіді get_fm_status: {e}")
+            messagebox.showerror("Помилка", f"Неможливо обробити відповідь get_fm_status: {e}")
+            return
+    else:
+        log_message("Помилка виконання команди: get_fm_status.")
+        messagebox.showerror("Помилка", "Команда get_fm_status не виконана.")
+        return
+
+    # Формирование команд с учётом проверки фискальной памяти
     commands = [
         f"open_port;{port_number};115200",
         "cashier_registration;1;0",
-        "execute_x_report;12321",
+    ]
+    if not skip_x_report:
+        commands.append("execute_x_report;12321")
+    commands.extend([
         "execute_report;703;36963;01/01/2015;31/12/2045",
         "send_cmd; vp;4F 43 15 63 90 00 00;",
         "cut_paper;",
-    ]
+    ])
 
     # Первый цикл выполнения команд
     for command in commands:
@@ -210,7 +288,7 @@ def cancel_report():    # СНЯТИЕ ФИСКАЛЬНЫХ ОТЧЁТОВ
             log_message(f"Помилка виконання команди: {command}")
             return
 
-    log_message("Перший комплект звітів готовий!")
+    #log_message("Перший комплект звітів готовий!")
 
     # Пауза 10 секунд
     time.sleep(10)
@@ -228,7 +306,6 @@ def cancel_report():    # СНЯТИЕ ФИСКАЛЬНЫХ ОТЧЁТОВ
     command = "close_port;"
     if not ecr.t400me(command):
         log_message(f"Помилка виконання команди: {command}")
-
 ######################################################################################
 # КІЛЬКІСТЬ ПАКЕТІВ В РРО
 def packet_count():
