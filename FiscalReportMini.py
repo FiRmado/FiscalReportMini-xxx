@@ -542,12 +542,98 @@ def get_rro_info():
         log_message(f"Помилка виконання команди: {command}")
 
 ######################################################################################
+# Функция получения информационного эквайера
+def get_acquirer_info():
+    ecr, port_number = get_ecr_connection()
+    if not ecr or not port_number:
+        return
+
+    # Выполнение команд
+    commands = [
+        f"open_port;{port_number};115200",
+        "cashier_registration;1;0"
+    ]
+
+    for command in commands:
+        if not execute_command(command, ecr):
+            log_message(f"Помилка виконання команди: {command}")
+            return
+
+    # Установка пути к рабочей директории
+    try:
+        project_dir = os.getcwd()  # Получаем текущую директорию проекта
+        set_dir_command = f"set_dir;{project_dir};"
+        if ecr.t400me(set_dir_command):
+            log_message(f"Робочий каталог встановлено: {project_dir}")
+        else:
+            log_message("Помилка встановлення робочого каталогу.")
+            return
+    except Exception as e:
+        log_message(f"Помилка встановлення робочого каталогу: {e}")
+        return
+
+    # Выполнение команды get_flash
+    try:
+        flash_command = "get_flash;1044992;32;"
+        if ecr.t400me(flash_command):
+            log_message("Команда 'get_flash' виконана успішно.")
+        else:
+            log_message("Помилка виконання команди 'get_flash'.")
+            return
+    except Exception as e:
+        log_message(f"Помилка виконання команди 'get_flash': {e}")
+        return
+
+    # Получение пути к рабочему каталогу через get_dir
+    try:
+        dir_command = "get_dir;"
+        if ecr.t400me(dir_command):
+            response = ecr.get_last_result.strip()
+            if response.startswith("0;"):
+                dir_path = response[2:]  # Путь начинается после '0;'
+                log_message(f"Робочий каталог отримано: {dir_path}")
+            else:
+                log_message("Помилка отримання робочого каталогу.")
+                return
+        else:
+            log_message("Помилка виконання команди 'get_dir'.")
+            return
+    except Exception as e:
+        log_message(f"Помилка виконання команди 'get_dir': {e}")
+        return
+
+    # Чтение и обработка файла mem1044992_32.bin
+    try:
+        file_path = os.path.join(dir_path, "mem1044992_32.bin")
+        if not os.path.exists(file_path):
+            log_message(f"Файл {file_path} не знайдено.")
+            return
+
+        with open(file_path, "r", encoding="windows-1251") as file:
+            content = file.read()
+
+        # Извлекаем данные до разделителя ':30583'
+        delimiter = ":30583"
+        relevant_content = content.split(delimiter)[0]
+
+        # Вывод в output_text
+        output_text.insert("end", f"Інформація про еквайєр:\n{relevant_content.strip()}\n")
+        messagebox.showinfo("Еквайер", f"\n{relevant_content.strip()}\n")
+        log_message("Інформація про еквайєр успішно отримана.")
+    except Exception as e:
+        log_message(f"Помилка читання файлу: {e}")
+
+    # Закрытие порта
+    command = "close_port;"
+    if not ecr.t400me(command):
+        log_message(f"Помилка виконання команди: {command}")
+######################################################################################
 ######################################################################################
 # Графическая часть:
 # Создание окна
 root = Window(themename="superhero")
 root.title("Скасування реєстрації")
-root.geometry("600x500")
+root.geometry("600x520")
 root.resizable(False, False)
 
 # Создание меню
@@ -602,7 +688,9 @@ buttons = [
     ("Кількість пакетів в РРО", "info", packet_count),
     ("Надіслати дані в ДПС", "primary", send_data),
     ("X-звіт", "success", x_report),
-    ("Фіскальні звіти", "danger", cancel_report)
+    ("Фіскальні звіти", "secondary", cancel_report),
+    ("Еквайєр", "dark", get_acquirer_info),
+    ("Вихід", "danger", exit)
 ]
 
 # Размещение кнопок в сетке
@@ -612,7 +700,7 @@ for i, (text, style, command) in enumerate(buttons):
 
 # Текстовое окно для вывода сообщений
 output_text = scrolledtext.ScrolledText(center_frame, width=60, height=15, wrap=tk.WORD, state="normal")
-output_text.grid(row=5, column=0, columnspan=2, padx=10, pady=10)
+output_text.grid(row=6, column=0, columnspan=2, padx=10, pady=10)
 
 # Запуск приложения
 root.mainloop()
