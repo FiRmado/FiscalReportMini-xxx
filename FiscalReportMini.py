@@ -233,23 +233,36 @@ def cancel_report():    # СНЯТИЕ ФИСКАЛЬНЫХ ОТЧЁТОВ
     ecr, port_number = get_ecr_connection()
     if not ecr or not port_number:
         return
-    
+
     # Открытие порта
     command = f"open_port;{port_number};115200"
     if not ecr.t400me(command):
         log_message(f"Помилка виконання команди: {command}")
         return
 
+    # Получение заводского номера
+    command = "read_fm_table;0;1;"
+    if ecr.t400me(command):
+        response = ecr.get_last_result.strip()
+        match = re.search(r"\b(?:ПБ|ПР)\d{10,}", response)
+        serial_number = match.group(0) if match else "Невідомо"
+        log_message(f"Заводський номер: {serial_number}")
+    else:
+        log_message("Помилка отримання заводського номера.")
+        serial_number = "Невідомо"
+
+    # Проверка, есть ли автообрезчик
+    has_auto_cutter = not serial_number.startswith("ПБ")
+
     # Проверка статуса фискальной памяти
     command = "get_fm_status;"
     if ecr.t400me(command):
         response = ecr.get_last_result.strip()
         try:
-            # Разбиваем ответ на параметры
             params = response.split(";")
-            if len(params) >= 10:  # Проверяем, что есть достаточно параметров
-                total_records = int(params[8])  # Параметр 9
-                used_records = int(params[7])   # Параметр 8
+            if len(params) >= 10:
+                total_records = int(params[8])
+                used_records = int(params[7])
                 if used_records >= total_records:
                     log_message("Фіскальна пам'ять переповнена. Зняття Х-звіту буде пропущено.")
                     messagebox.showinfo("Увага", "Фіскальна пам'ять переповнена. Зняття Х-звіту буде пропущено.")
@@ -269,7 +282,7 @@ def cancel_report():    # СНЯТИЕ ФИСКАЛЬНЫХ ОТЧЁТОВ
         messagebox.showerror("Помилка", "Команда get_fm_status не виконана.")
         return
 
-    # Формирование команд с учётом проверки фискальной памяти
+    # Формирование команд
     commands = [
         f"open_port;{port_number};115200",
         "cashier_registration;1;0",
@@ -279,16 +292,15 @@ def cancel_report():    # СНЯТИЕ ФИСКАЛЬНЫХ ОТЧЁТОВ
     commands.extend([
         "execute_report;703;36963;01/01/2015;31/12/2045",
         "send_cmd; vp;4F 43 15 63 90 00 00;",
-        "cut_paper;",
     ])
+    if has_auto_cutter:
+        commands.append("cut_paper;")
 
     # Первый цикл выполнения команд
     for command in commands:
         if not execute_command(command, ecr):
             log_message(f"Помилка виконання команди: {command}")
             return
-
-    #log_message("Перший комплект звітів готовий!")
 
     # Пауза 10 секунд
     time.sleep(10)
